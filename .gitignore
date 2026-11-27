@@ -11,5 +11,5 @@ qa/
 build.stamp
 out/
 venv-test/
-.rvfont.mk
+.font-tools.mk
 out-check-font.txt

@@ -2,9 +2,9 @@
 # by sources/build_arclight.py, so `make build` runs sources/build.sh, which writes the
 # Light, Regular and Bold UFOs and then runs gftools builder on sources/config.yaml.
 #
-# build, test, qa, proof, images and update are shared by every rv font repo: they
-# come from font-tools (https://github.com/q78717/font-tools), whose `rvfont makefile`
-# writes them to .rvfont.mk from the version pinned in requirements.txt.
+# build, test, qa, proof, images and update are shared by every font family repo: they
+# come from font-tools (https://github.com/q78717/font-tools), whose `font-tools makefile`
+# writes them to .font-tools.mk from the version pinned in requirements.txt.
 FAMILY = Arclight
 SOURCES = sources/build_arclight.py sources/build_specimen.py sources/specimen_template.html $(wildcard sources/config*.yaml)
 GF_FONTS = fonts/ttf/Arclight-Light.ttf fonts/ttf/Arclight-Regular.ttf fonts/ttf/Arclight-Bold.ttf
@@ -38,15 +38,15 @@ $(FONT_VENV)/touchfile: requirements.txt
 	$(FONT_VENV)/bin/pip install -Ur requirements.txt
 	touch $@
 
-.rvfont.mk: $(FONT_VENV)/touchfile
-	$(FONT_VENV)/bin/rvfont makefile > $@
+.font-tools.mk: $(FONT_VENV)/touchfile
+	$(FONT_VENV)/bin/font-tools makefile > $@
 
 clean:
-	rm -rf venv build.stamp out .rvfont.mk
+	rm -rf venv build.stamp out .font-tools.mk
 	find . -name "*.pyc" -not -path "*/venv*" -delete
 
 ifneq ($(filter-out help venv clean,$(MAKECMDGOALS)),)
-include .rvfont.mk
+include .font-tools.mk
 endif
 
 .PHONY: help venv clean

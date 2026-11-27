@@ -7,7 +7,7 @@ Arclight is a contemporary geometric monoline typeface family designed with pure
 - **Language**: Python 3.10+
 - **Outline Synthesis**: `skia-pathops` (stroke expansion, overlap removal), `fontTools` (`svgLib.path`, pens), `ufoLib2`
 - **Font Compilation & Hinting**: `gftools builder`, `fontmake`, `ufo2ft`, `ttfautohint-py`
-- **Proofs, Specimen & QA**: [`rvfont`](https://github.com/q78717/font-tools) (shared by the rv font repos), `fontspector`, `FontBakery`
+- **Proofs, Specimen & QA**: [`font-tools`](https://github.com/q78717/font-tools) (shared by the rv font repos), `fontspector`, `FontBakery`
 - **License**: SIL Open Font License 1.1 (`OFL.txt`)
 
 ## 3. Technical Architecture
@@ -22,7 +22,7 @@ font-arclight/
 ├── .github/workflows/            # CI build/test, GitHub Pages specimen, Release packaging (via font-tools)
 ├── AUTHORS.txt / CONTRIBUTORS.txt
 ├── DESIGN.md                     # This document
-├── Makefile                      # help, venv, clean; shared targets from font-tools (.rvfont.mk)
+├── Makefile                      # help, venv, clean; shared targets from font-tools (.font-tools.mk)
 ├── OFL.txt                       # SIL Open Font License 1.1
 ├── README.md
 ├── requirements.in / requirements.txt / requirements-qa.txt
@@ -54,7 +54,7 @@ font-arclight/
 - **Google Fonts QA**: `make test` (fontspector) and `make qa` (FontBakery)
 
 ## 7. Open QA Findings
-`rvfont check-font` reports the following on the fonts as originally drawn. The build lists them in `out-check-font.txt` and does not fail on them.
+`font-tools check-font` reports the following on the fonts as originally drawn. The build lists them in `out-check-font.txt` and does not fail on them.
 - **usWin metrics clip glyphs**: the descenders of `g`, `j`, `p`, `q` and `y` go below win descent 260, so Windows can clip them.
 - **Short segments**: round caps and joins expanded by Skia leave many short quadratic pieces.
 - **On-curve points just off a vertical zone**, plus one jaggy join in `@` (Regular).

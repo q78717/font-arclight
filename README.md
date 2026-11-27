@@ -56,7 +56,7 @@ make images   # redraws the PNG images in documentation/
 2. It compiles `sources/config.yaml` into `fonts/ttf/` and `fonts/webfonts/`.
 3. It adds a `STAT` table.
 4. It rebuilds `documentation/specimen/index.html`.
-5. It runs `rvfont check-font` and writes the findings to `out-check-font.txt`. See DESIGN.md for the open findings.
+5. It runs `font-tools check-font` and writes the findings to `out-check-font.txt`. See DESIGN.md for the open findings.
 
 Dependencies are listed in `requirements.in`, and `make update` regenerates the pinned `requirements.txt`. FontBakery uses a separate environment built from `requirements-qa.txt`.
 

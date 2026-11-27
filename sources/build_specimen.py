@@ -7,7 +7,7 @@ import argparse
 import os
 import sys
 
-from rvfont import specimen
+from font_tools import specimen
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)

@@ -2,9 +2,9 @@
 """Render the README images in documentation/images/ from the built fonts (`make images`)."""
 import os
 
-from rvfont.grid import grid, printing_chars
-from rvfont.palette import DENIM, RED
-from rvfont.raster import line, save_rows
+from font_tools.grid import grid, printing_chars
+from font_tools.palette import DENIM, RED
+from font_tools.raster import line, save_rows
 
 L = "fonts/ttf/Arclight-Light.ttf"
 R = "fonts/ttf/Arclight-Regular.ttf"
