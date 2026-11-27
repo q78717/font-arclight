@@ -13,9 +13,7 @@ python3 sources/build_arclight.py --ufo sources/ufo
 (cd sources && gftools builder config.yaml)
 python3 sources/tools/add_stat.py fonts/ttf fonts/webfonts
 python3 sources/build_specimen.py --fonts fonts/webfonts --out documentation/specimen/index.html
-# Arclight has no kerning yet and keeps its original 1.06 em line height. The outline and
-# usWin findings predate the move to gftools, so the check reports them without failing the build.
-font-tools check-font fonts/ttf/Arclight-Light.ttf fonts/ttf/Arclight-Regular.ttf fonts/ttf/Arclight-Bold.ttf \
-  --no-kern --min-line-height 0 > out-check-font.txt 2>&1 \
-  && echo "font checks ok" \
-  || echo "font checks: $(grep -c '^FAIL' out-check-font.txt) finding(s), see out-check-font.txt (not yet fixed; see DESIGN.md)"
+# Short segments: the 45-degree pieces of the small round caps and joins are under FontBakery's
+# 0.6% rule (a WARN there). Jaggy: the cusp where the arc of @ meets its stem is drawn that way.
+fonts=(fonts/ttf/Arclight-Light.ttf fonts/ttf/Arclight-Regular.ttf fonts/ttf/Arclight-Bold.ttf)
+font-tools check-font "${fonts[@]}" --kern To --kern LT --kern Yo --skip short-segments --skip jaggy

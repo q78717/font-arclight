@@ -13,14 +13,17 @@ compiles, hints and writes fonts/ttf and fonts/webfonts.
 Usage: python3 sources/build_arclight.py --ufo sources/ufo
 """
 import argparse
+import math
 import os
 import shutil
 
+import numpy as np
 import pathops
 import ufoLib2
-from fontTools.pens.reverseContourPen import ReverseContourPen
+from fontTools.pens.areaPen import AreaPen
+from fontTools.pens.basePen import BasePen
+from fontTools.pens.recordingPen import RecordingPen
 from fontTools.pens.transformPen import TransformPen
-from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.svgLib.path import parse_path
 
 FAMILY = "Arclight"
@@ -146,26 +149,314 @@ WEIGHTS = [  # style name, stroke width (design units), usWeightClass
     ("Bold",   12.0, 700),
 ]
 
-def outline(d, stroke_w):
-    """Expand a monoline SVG path into a filled outline. Returns (pathops.Path, x shift, advance)."""
+# Outline cleanup (Google Fonts outline checks)
+CONIC_TOL = 2.0         # conic -> quadratic tolerance; gives 45-degree pieces on round caps and joins
+TINY = 3.0              # segments shorter than this are overlap debris and are dropped
+ZONES = (0, 384, 704, -256)   # baseline, x-height, cap height, descender
+SNAP = 2                # points this close to a zone are moved onto it
+
+# Profile-based kerning (same method as Vektra): tighten pairs whose closest approach
+# is wider than two sidebearings; never loosen.
+KERN_ROWS_STEP = 8
+KERN_WINDOW = 32
+KERN_FACTOR = 0.72
+KERN_MAX = 160
+KERN_MIN = 12
+KERN_TARGET = 2 * SIDE
+
+MIN_LINE_HEIGHT = 1.2   # em, Google Fonts guidance
+
+
+def stroke(d, stroke_w, tol=CONIC_TOL):
+    """Expand a monoline SVG path into a filled, overlap-free pathops.Path."""
     path = pathops.Path()
     tp = TransformPen(path.getPen(), (SCALE, 0, 0, -SCALE, 0, BASELINE * SCALE))
     parse_path(d, tp)
     path.stroke(stroke_w * SCALE, pathops.LineCap.ROUND_CAP,
                 pathops.LineJoin.ROUND_JOIN, 4)
-    path.convertConicsToQuads(0.25)
+    path.convertConicsToQuads(tol)
     path.simplify(fix_winding=True, keep_starting_points=False)
-    x_min, _, x_max, _ = path.bounds
-    dx = SIDE - x_min                          # left sidebearing is optical, not drawn
-    # The original FontBuilder build wrote hmtx lsb = SIDE while the TrueType outline's
-    # xMin came out lower, so renderers moved the outline right by the difference.
-    # Bake that shift in, so the glyphs render where they always have.
-    tt = TTGlyphPen(None)
-    path.draw(TransformPen(ReverseContourPen(tt), (1, 0, 0, 1, dx, 0)))
-    g = tt.glyph()
-    g.recalcBounds(None)
-    dx += SIDE - g.xMin
-    return path, dx, round(x_max - x_min + 2 * SIDE)
+    return path
+
+
+def _snap(pt):
+    if pt is None:                             # implied on-curve end of an all-off-curve contour
+        return None
+    x, y = round(pt[0]), round(pt[1])
+    for z in ZONES:
+        if 0 < abs(y - z) <= SNAP:
+            y = z
+            break
+    return (x, y)
+
+
+def clean_contours(path, level=2):
+    """Rounded contours [(start, [(op, pts), ...]), ...] with zone snapping (level >= 0),
+    debris removed (level >= 1) and short pieces merged (level >= 2)."""
+    rp = RecordingPen()
+    path.draw(rp)
+    contours, cur = [], None
+    for op, pts in rp.value:
+        if op == "moveTo":
+            cur = [_snap(pts[0]), []]
+        elif op in ("lineTo", "qCurveTo"):
+            if cur is None:                    # dots: one all-off-curve quadratic contour, no moveTo
+                cur = [None, []]
+            if op == "qCurveTo" and len(pts) > 2 and pts[-1] is not None:
+                # spell out the implied on-curve midpoints so they get snapped and merged too
+                for i, c in enumerate(pts[:-1]):
+                    nxt = pts[-1] if i == len(pts) - 2 else ((c[0] + pts[i + 1][0]) / 2, (c[1] + pts[i + 1][1]) / 2)
+                    cur[1].append((op, [_snap(c), _snap(nxt)]))
+            else:
+                cur[1].append((op, [_snap(q) for q in pts]))
+        elif op in ("closePath", "endPath"):
+            contours.append(cur)
+            cur = None
+    out = []
+    for start, segs in contours:
+        if start is None:
+            out.append((None, segs))
+            continue
+        kept, here = [], start
+        for op, pts in segs:
+            end = pts[-1]
+            if level >= 1 and math.dist(end, here) < TINY and all(math.dist(q, here) < TINY for q in pts):
+                continue                       # debris: skip, the next piece starts from `here`
+            kept.append((op, pts))
+            here = end
+        while level >= 1 and kept and kept[-1][0] == "lineTo" and math.dist(kept[-1][1][-1], start) < TINY:
+            kept.pop()                         # closing line does the same job
+        if level >= 2:
+            kept = merge_quads(start, kept)
+            kept = [(op, [_snap(q) for q in pts]) for op, pts in kept]   # merged controls too
+            kept = merge_lines(start, kept)
+            if len(kept) >= 3 and kept[0][0] == "lineTo" and _colinear(kept[-1][1][-1], start, kept[0][1][0]):
+                start, kept = kept[0][1][0], kept[1:]
+        if len(kept) >= 2:
+            out.append((start, kept))
+    return out
+
+
+def _colinear(a, b, c):
+    """b lies on the straight run from a to c (within half a unit, same direction)."""
+    ab, bc = (b[0] - a[0], b[1] - a[1]), (c[0] - b[0], c[1] - b[1])
+    if ab[0] * bc[0] + ab[1] * bc[1] <= 0:
+        return False
+    L = math.dist(a, c)
+    return L > 0 and abs((c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0])) / L < 0.5
+
+
+def merge_lines(start, segs):
+    """Join consecutive straight segments that run in one line."""
+    out, here = [], start
+    for op, pts in segs:
+        if out and op == "lineTo" and out[-1][0] == "lineTo" and _colinear(out[-1][2], out[-1][1][0], pts[0]):
+            out[-1][1] = pts
+        else:
+            out.append([op, pts, here])
+        here = pts[-1]
+    return [(op, pts) for op, pts, _ in out]
+
+
+def _quad(p0, c, p1, t):
+    u = 1 - t
+    return (u * u * p0[0] + 2 * u * t * c[0] + t * t * p1[0], u * u * p0[1] + 2 * u * t * c[1] + t * t * p1[1])
+
+
+def _intersect(p, d, q, e):
+    den = d[0] * e[1] - d[1] * e[0]
+    if abs(den) < 1e-9:
+        return None
+    s = ((q[0] - p[0]) * e[1] - (q[1] - p[1]) * e[0]) / den
+    return (p[0] + s * d[0], p[1] + s * d[1])
+
+
+MERGE_TOL = 1.0   # font units a merged quadratic may stray from the two it replaces
+
+
+def merge_quads(start, segs):
+    """Replace two consecutive single-control quadratics with one where that stays within
+    MERGE_TOL: fewer, longer curve pieces on the round caps and joins."""
+    segs = [list(s) for s in segs]
+    changed = True
+    while changed:
+        changed = False
+        here, i = start, 0
+        while i < len(segs) - 1:
+            (op1, a), (op2, b) = segs[i], segs[i + 1]
+            if op1 == op2 == "qCurveTo" and len(a) == 2 and len(b) == 2:
+                p0, c1, p1, c2, p2 = here, a[0], a[1], b[0], b[1]
+                c = _intersect(p0, (c1[0] - p0[0], c1[1] - p0[1]), p2, (c2[0] - p2[0], c2[1] - p2[1]))
+                if c is not None:
+                    c = (round(c[0]), round(c[1]))
+                    old = [_quad(p0, c1, p1, k / 8) for k in range(9)] + [_quad(p1, c2, p2, k / 8) for k in range(9)]
+                    new = [_quad(p0, c, p2, k / 32) for k in range(33)]
+                    if max(min(math.dist(o, n) for n in new) for o in old) <= MERGE_TOL:
+                        segs[i:i + 2] = [["qCurveTo", [c, p2]]]
+                        changed = True
+                        continue
+            here = segs[i][1][-1]
+            i += 1
+    return [tuple(s) for s in segs]
+
+
+def _points(start, segs):
+    return [p for p in [start] + [q for _, pts in segs for q in pts] if p is not None]
+
+
+def shift(contours, dx):
+    mv = lambda p: None if p is None else (p[0] + dx, p[1])  # noqa: E731
+    return [(mv(s), [(op, [mv(q) for q in pts]) for op, pts in segs]) for s, segs in contours]
+
+
+DRIFT_FACTOR = 3.0   # a cleanup may move at most this many times the area plain rounding moves
+
+
+def _area(path):
+    ap = AreaPen()
+    path.draw(ap)
+    return abs(ap.value)
+
+
+def _to_path(contours):
+    path = pathops.Path()
+    draw_contours(path.getPen(), contours)
+    return path
+
+
+def safe_clean(path, name=""):
+    """The strongest cleanup whose result still covers the same ink as `path`.
+    Merging can go wrong on self-touching contours (Bold e), so each level is compared
+    with a boolean XOR against the raw outline. Level 0 (rounding and zone snapping) is
+    the yardstick: a stronger level may move at most DRIFT_FACTOR times as much area."""
+    def drift(contours):
+        return _area(pathops.op(path, _to_path(contours), pathops.PathOp.XOR))
+
+    base = clean_contours(path, 0)
+    allowed = DRIFT_FACTOR * max(drift(base), 1.0)
+    for level in (2, 1):
+        contours = clean_contours(path, level)
+        d = drift(contours)
+        if d <= allowed:
+            return contours
+        print(f"  {name}: cleanup level {level} moves {d:.0f} units² (limit {allowed:.0f}), using a lighter one")
+    return base
+
+
+REF_TOL = 0.25   # the original build's conic tolerance; spacing is measured on that outline
+
+
+def build_glyph(d, stroke_w, name=""):
+    """Returns (contours, advance). Spacing comes from the outline the original FontBuilder
+    build made: advance = ink width + 2 * SIDE, and the control-point box starts SIDE units
+    from the origin (that build wrote hmtx lsb = SIDE, which is where renderers drew it)."""
+    ref = stroke(d, stroke_w, REF_TOL)
+    x_min, _, x_max, _ = ref.bounds
+    rp = RecordingPen()
+    ref.draw(rp)
+    ctl_min = min(round(q[0]) for _, pts in rp.value for q in pts if q is not None)
+    path = stroke(d, stroke_w)
+    # The coarser conic tolerance can trip pathops' overlap removal (Bold e filled its
+    # counter); fall back to the fine outline when the two disagree.
+    if _area(pathops.op(path, ref, pathops.PathOp.XOR)) > 0.005 * _area(ref):
+        print(f"  {name}: coarse outline disagrees with the fine one, using the fine one")
+        path = ref
+    return shift(safe_clean(path, name), SIDE - ctl_min), round(x_max - x_min + 2 * SIDE)
+
+
+class _Flat(BasePen):
+    def __init__(self):
+        super().__init__(None)
+        self.contours, self.cur = [], []
+
+    def _moveTo(self, p):
+        self.cur = [p]
+
+    def _lineTo(self, p):
+        self.cur.append(p)
+
+    def _qCurveToOne(self, p1, p2):
+        p0 = self.cur[-1]
+        for i in range(1, 9):
+            t = i / 8.0
+            a, b, c = (1 - t) ** 2, 2 * (1 - t) * t, t * t
+            self.cur.append((a * p0[0] + b * p1[0] + c * p2[0], a * p0[1] + b * p1[1] + c * p2[1]))
+
+    def _closePath(self):
+        self.contours.append(self.cur)
+        self.cur = []
+
+    _endPath = _closePath
+
+
+def draw_contours(pen, contours):
+    for start, segs in contours:
+        if start is not None:
+            pen.moveTo(start)
+        for op, pts in segs:
+            getattr(pen, op)(*pts)
+        pen.closePath()
+
+
+def profile(contours, rows):
+    """Leftmost and rightmost ink per scanline, widened over KERN_WINDOW."""
+    flat = _Flat()
+    draw_contours(flat, contours)
+    L = np.full(rows.shape, np.inf)
+    R = np.full(rows.shape, -np.inf)
+    for c in flat.contours:
+        pts = np.array(c + [c[0]], dtype=float)
+        for xa, ya, xb, yb in zip(pts[:-1, 0], pts[:-1, 1], pts[1:, 0], pts[1:, 1]):
+            m = (rows >= min(ya, yb)) & (rows <= max(ya, yb))
+            if not m.any():
+                continue
+            xs = xa if ya == yb else xa + (rows[m] - ya) * (xb - xa) / (yb - ya)
+            L[m] = np.minimum(L[m], xs)
+            R[m] = np.maximum(R[m], xs)
+    k = KERN_WINDOW // KERN_ROWS_STEP
+    Lw, Rw = L.copy(), R.copy()
+    for s in range(1, k + 1):
+        Lw[s:] = np.minimum(Lw[s:], L[:-s])
+        Lw[:-s] = np.minimum(Lw[:-s], L[s:])
+        Rw[s:] = np.maximum(Rw[s:], R[:-s])
+        Rw[:-s] = np.maximum(Rw[:-s], R[s:])
+    return Lw, Rw
+
+
+def auto_kern(glyphs):
+    rows = np.arange(-300, 950, KERN_ROWS_STEP, dtype=float)
+    prof = {n: (*profile(c, rows), adv) for n, (c, adv) in glyphs.items() if c}
+    kerning = {}
+    for a, (_, Ra, adv) in prof.items():
+        for b, (Lb, _, _) in prof.items():
+            m = np.isfinite(Ra) & np.isfinite(Lb)
+            if not m.any():
+                continue
+            dmin = float(np.min(adv - Ra[m] + Lb[m]))
+            kv = -int(round(min(KERN_MAX, KERN_FACTOR * (dmin - KERN_TARGET)) / 2.0) * 2)
+            if kv <= -KERN_MIN:
+                kerning[(a, b)] = kv
+    return kerning
+
+
+def build_weight(stroke_w):
+    glyphs = {}
+    for ch, (d, _) in G.items():
+        glyphs[NAMES[ch]] = build_glyph(d, stroke_w, f"{NAMES[ch]} {stroke_w}") if d else ([], SPACE)
+    return glyphs
+
+
+def vertical_metrics(weights):
+    """Clear every glyph in every weight; keep the line height at least MIN_LINE_HEIGHT em."""
+    ys = [p[1] for glyphs in weights.values() for contours, _ in glyphs.values()
+          for s, segs in contours for p in _points(s, segs)]
+    asc = int(math.ceil(max(ys) / 10.0) * 10)
+    desc = int(math.floor(min(ys) / 10.0) * 10)
+    if asc - desc < MIN_LINE_HEIGHT * UPM:
+        extra = int(MIN_LINE_HEIGHT * UPM) - (asc - desc)
+        asc += extra - extra // 2
+        desc -= extra // 2
+    return asc, desc
 
 
 def draw_notdef(pen):
@@ -179,7 +470,8 @@ def draw_notdef(pen):
         pen.closePath()
 
 
-def write_ufo(style, stroke_w, weight_class, ufo_dir):
+def write_ufo(style, stroke_w, weight_class, glyphs, metrics, ufo_dir):
+    asc, desc = metrics
     ufo = ufoLib2.Font()
     info = ufo.info
     info.familyName = FAMILY
@@ -201,12 +493,12 @@ def write_ufo(style, stroke_w, weight_class, ufo_dir):
     info.openTypeNameLicenseURL = "https://openfontlicense.org"
     info.openTypeNameDescription = "Monoline arc typeface: every glyph is one stroked centre line."
     info.unitsPerEm = UPM
-    info.ascender, info.descender = 760, -260
+    info.ascender, info.descender = asc, desc
     info.xHeight, info.capHeight = 384, 704
-    # Vertical metrics as in the original FontBuilder build.
-    info.openTypeHheaAscender, info.openTypeHheaDescender, info.openTypeHheaLineGap = 800, -260, 0
-    info.openTypeOS2TypoAscender, info.openTypeOS2TypoDescender, info.openTypeOS2TypoLineGap = 760, -260, 90
-    info.openTypeOS2WinAscent, info.openTypeOS2WinDescent = 800, 260
+    info.openTypeHheaAscender, info.openTypeHheaDescender, info.openTypeHheaLineGap = asc, desc, 0
+    info.openTypeOS2TypoAscender, info.openTypeOS2TypoDescender, info.openTypeOS2TypoLineGap = asc, desc, 0
+    info.openTypeOS2WinAscent, info.openTypeOS2WinDescent = asc, -desc
+    info.openTypeOS2Selection = [7]            # USE_TYPO_METRICS
     info.openTypeOS2Type = []
     info.openTypeOS2VendorID = "ARCL"
     info.openTypeOS2WeightClass = weight_class
@@ -220,21 +512,23 @@ def write_ufo(style, stroke_w, weight_class, ufo_dir):
     g = ufo.newGlyph(".notdef")
     g.width = 600
     draw_notdef(g.getPen())
-    for ch, (d, _) in G.items():
-        g = ufo.newGlyph(NAMES[ch])
-        g.unicodes = [ord(ch)]
-        if d:
-            path, dx, g.width = outline(d, stroke_w)
-            path.draw(TransformPen(g.getPen(), (1, 0, 0, 1, dx, 0)))
-        else:
-            g.width = SPACE
+    for ch in G:
+        name = NAMES[ch]
+        contours, adv = glyphs[name]
+        g = ufo.newGlyph(name)
+        g.unicodes = [ord(ch), 0xA0] if ch == " " else [ord(ch)]
+        g.width = adv
+        draw_contours(g.getPen(), contours)
     ufo.lib["public.glyphOrder"] = order
+    ufo.lib["public.openTypeMeta"] = {"dlng": ["Latn"], "slng": ["Latn"]}
+    for pair, v in auto_kern(glyphs).items():
+        ufo.kerning[pair] = v
 
     path = os.path.join(ufo_dir, f"{FAMILY}-{style}.ufo")
     if os.path.exists(path):
         shutil.rmtree(path)
     ufo.save(path)
-    print(f"{path}: {len(order)} glyphs")
+    print(f"{path}: {len(order)} glyphs, {len(ufo.kerning)} kern pairs")
     return path
 
 
@@ -243,5 +537,7 @@ if __name__ == "__main__":
     ap.add_argument("--ufo", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "ufo"))
     a = ap.parse_args()
     os.makedirs(a.ufo, exist_ok=True)
+    weights = {style: build_weight(w) for style, w, _ in WEIGHTS}
+    metrics = vertical_metrics(weights)
     for style, w, wc in WEIGHTS:
-        write_ufo(style, w, wc, a.ufo)
+        write_ufo(style, w, wc, weights[style], metrics, a.ufo)

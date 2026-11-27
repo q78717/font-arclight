@@ -12,4 +12,3 @@ build.stamp
 out/
 venv-test/
 .font-tools.mk
-out-check-font.txt

@@ -18,7 +18,7 @@ Arclight is a monoline display typeface built from arcs and straights only. Ever
 
 ## Character set
 
-The 91 characters cover basic Latin letters, figures, and common punctuation and symbols. There are no accented letters yet. Arclight is a display face, and it reads best at 24 px and up.
+The 91 characters cover basic Latin letters, figures, and common punctuation and symbols, with kerning in every weight. There are no accented letters yet. Arclight is a display face, and it reads best at 24 px and up.
 
 ![Glyph set](documentation/images/glyphs.png)
 
@@ -56,7 +56,7 @@ make images   # redraws the PNG images in documentation/
 2. It compiles `sources/config.yaml` into `fonts/ttf/` and `fonts/webfonts/`.
 3. It adds a `STAT` table.
 4. It rebuilds `documentation/specimen/index.html`.
-5. It runs `font-tools check-font` and writes the findings to `out-check-font.txt`. See DESIGN.md for the open findings.
+5. It runs `font-tools check-font` (outline quality, zones, kerning, metrics). See DESIGN.md for the QA status.
 
 Dependencies are listed in `requirements.in`, and `make update` regenerates the pinned `requirements.txt`. FontBakery uses a separate environment built from `requirements-qa.txt`.
 
