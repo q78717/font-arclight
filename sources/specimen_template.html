@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arclight Specimen</title>
+<style>
+@font-face { font-family: "Arclight"; font-weight: 300; src: url(data:font/woff2;base64,__FONT_LIGHT__) format("woff2"); font-display: block; }
+@font-face { font-family: "Arclight"; font-weight: 400; src: url(data:font/woff2;base64,__FONT_REGULAR__) format("woff2"); font-display: block; }
+@font-face { font-family: "Arclight"; font-weight: 700; src: url(data:font/woff2;base64,__FONT_BOLD__) format("woff2"); font-display: block; }
+
+:root {
+  /* rv site palette: darknavy #0d1b2a, offwhite #f5f3ee, denim #3b5b8c, red #d72638 */
+  --paper: #f5f3ee;
+  --panel: #ffffff;
+  --ink: #0d1b2a;
+  --muted: rgba(13, 27, 42, 0.68);
+  --rule: rgba(13, 27, 42, 0.14);
+  --denim: #3b5b8c;
+  --red: #d72638;
+  --f-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --f-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0d1b2a; --panel: #13263a; --ink: #f5f3ee; --muted: rgba(245, 243, 238, 0.70);
+    --rule: rgba(245, 243, 238, 0.14); --denim: #8fb0e0; --red: #d72638; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0d1b2a; --panel: #13263a; --ink: #f5f3ee; --muted: rgba(245, 243, 238, 0.70);
+  --rule: rgba(245, 243, 238, 0.14); --denim: #8fb0e0; --red: #d72638; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--f-body); -webkit-font-smoothing: antialiased; }
+body { padding: clamp(16px, 4vw, 56px); max-width: 1180px; margin: 0 auto; }
+a { color: var(--denim); }
+a:hover { color: var(--red); }
+
+header { border-bottom: 1px solid var(--rule); padding-bottom: 26px; margin-bottom: 34px; }
+.eyebrow { font-family: var(--f-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--red); margin: 0 0 14px; }
+h1 { font: 400 clamp(40px, 8vw, 64px)/1 "Arclight", sans-serif; letter-spacing: .06em; margin: 0 0 14px; }
+header p.lede { margin: 0 0 18px; font-size: 15px; line-height: 1.6; color: var(--muted); max-width: 62ch; }
+.get { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 0; }
+.btn { display: inline-block; text-decoration: none; font: 500 13px/1 var(--f-body); padding: 11px 16px; border-radius: 0; }
+.btn-primary { background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
+.btn-primary:hover { background: var(--red); border-color: var(--red); color: #f5f3ee; }
+.btn-secondary { background: none; color: var(--ink); border: 1px solid var(--ink); }
+.btn-secondary:hover { color: var(--red); border-color: var(--red); }
+.lic { font-size: 13px; color: var(--muted); }
+
+.stage { background: var(--panel); border: 1px solid var(--rule); padding: 34px 24px; min-height: 190px; display: flex; align-items: center; overflow: hidden; }
+#type { font-family: "Arclight", sans-serif; font-size: 96px; line-height: 1.15; letter-spacing: .05em; color: var(--ink); width: 100%; outline: none; word-break: break-word; }
+#type:focus { caret-color: var(--red); }
+
+.controls { display: flex; flex-wrap: wrap; gap: 20px 26px; align-items: center; margin: 18px 0 56px; }
+label { font-family: var(--f-mono); font-size: 11px; letter-spacing: .14em; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+input[type=range] { accent-color: var(--red); width: 110px; }
+.seg { display: flex; border: 1px solid var(--rule); }
+.seg button { background: none; border: 0; color: var(--muted); font: 400 11px/1 var(--f-mono); letter-spacing: .14em; padding: 9px 13px; cursor: pointer; }
+.seg button:hover { color: var(--red); }
+.seg button[aria-pressed=true] { background: var(--ink); color: var(--paper); }
+.sw { width: 22px; height: 22px; border: 1px solid var(--rule); cursor: pointer; padding: 0; }
+.sw[aria-pressed=true] { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sw-ink { background: var(--ink); } .sw-denim { background: var(--denim); } .sw-red { background: var(--red); }
+button:focus-visible, a:focus-visible, input:focus-visible, [contenteditable]:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
+
+h2 { font-family: var(--f-mono); font-size: 11px; font-weight: 500; letter-spacing: .2em; text-transform: uppercase; color: var(--red); margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+.wline { font-family: "Arclight", sans-serif; font-size: clamp(28px, 5.4vw, 58px); letter-spacing: .04em; margin: 0 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wmeta { font-family: var(--f-mono); font-size: 11px; letter-spacing: .14em; color: var(--muted); margin: 0 0 26px; }
+.para { font-family: "Arclight", sans-serif; font-size: 19px; line-height: 1.75; letter-spacing: .03em; max-width: 56ch; margin: 0 0 46px; }
+.note { font-size: 14px; line-height: 1.6; color: var(--muted); max-width: 62ch; margin: 0 0 22px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 2px; margin-bottom: 44px; }
+.cell { background: var(--panel); border: 1px solid var(--rule); aspect-ratio: 1 / 1.1; display: flex; align-items: center; justify-content: center; position: relative; }
+.cell svg { width: 76%; height: 76%; }
+.cell b { position: absolute; left: 7px; top: 6px; font: 400 10px/1 var(--f-mono); color: var(--muted); }
+.guides line { stroke: var(--denim); stroke-width: 1.5; opacity: .45; }
+.skel { fill: none; stroke: var(--ink); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+
+pre { background: var(--panel); border: 1px solid var(--rule); border-left: 3px solid var(--red); padding: 18px 20px; overflow-x: auto; font: 400 12.5px/1.7 var(--f-mono); margin: 0 0 30px; }
+footer { border-top: 1px solid var(--rule); padding-top: 22px; font-size: 12px; line-height: 1.7; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .btn, .seg button { transition: background .15s ease, color .15s ease, border-color .15s ease; } }
+</style>
+<style id="rv-theme-toggle">
+.rv-toggle { position: fixed; top: 16px; right: 16px; z-index: 50; width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center; border: none;
+  border-radius: 6px; background: var(--paper); color: var(--denim); cursor: pointer; }
+.rv-toggle:hover { color: var(--red); }
+.rv-toggle:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.rv-toggle svg { width: 20px; height: 20px; fill: currentColor; }
+.rv-toggle .sun { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .rv-toggle .sun { display: block; }
+  :root:not([data-theme="light"]) .rv-toggle .moon { display: none; }
+}
+:root[data-theme="dark"] .rv-toggle .sun { display: block; }
+:root[data-theme="dark"] .rv-toggle .moon { display: none; }
+/* Inside the q78717.github.io site header's toggle drives the theme. */
+.rv-embedded .rv-toggle { display: none; }
+</style>
+<script>
+(function () {
+  var r = document.documentElement;
+  if (window.self !== window.top) r.classList.add("rv-embedded");
+  else { try { var t = localStorage.getItem("theme"); if (t === "light" || t === "dark") r.setAttribute("data-theme", t); } catch (e) {} }
+})();
+</script>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow">Typeface specimen &middot; version __VERSION__</p>
+  <h1>Arclight</h1>
+  <p class="lede">A monoline display face built from arcs and straights only: no corners, no fills, and the fewest strokes that still read. Three weights, __CHARS__ characters. Type in the box to set it.</p>
+  <p class="get"><a class="btn btn-primary" href="__REPO__/releases/latest">Download the fonts</a> <a class="btn btn-secondary" href="__REPO__">Source on GitHub</a> <span class="lic">Free under the SIL Open Font License</span></p>
+</header>
+
+<div class="stage"><div id="type" contenteditable="true" spellcheck="false" aria-label="Editable specimen text">Arclight 2049</div></div>
+
+<div class="controls">
+  <label>SIZE <input id="size" type="range" min="28" max="200" value="96"></label>
+  <label>TRACK <input id="track" type="range" min="-4" max="30" value="5"></label>
+  <div class="seg" id="wsel">
+    <button type="button" data-w="300" aria-pressed="false">LIGHT</button>
+    <button type="button" data-w="400" aria-pressed="true">REGULAR</button>
+    <button type="button" data-w="700" aria-pressed="false">BOLD</button>
+  </div>
+  <div style="display:flex;gap:10px">
+    <button type="button" class="sw sw-ink" data-c="var(--ink)" aria-label="Ink" aria-pressed="true"></button>
+    <button type="button" class="sw sw-denim" data-c="var(--denim)" aria-label="Denim" aria-pressed="false"></button>
+    <button type="button" class="sw sw-red" data-c="var(--red)" aria-label="Red" aria-pressed="false"></button>
+  </div>
+</div>
+
+<h2>Weights</h2>
+<p class="wline" style="font-weight:300">Orbital transit, gate 14</p>
+<p class="wmeta">LIGHT &middot; 300</p>
+<p class="wline" style="font-weight:400">Orbital transit, gate 14</p>
+<p class="wmeta">REGULAR &middot; 400</p>
+<p class="wline" style="font-weight:700">Orbital transit, gate 14</p>
+<p class="wmeta">BOLD &middot; 700</p>
+
+<h2>In text</h2>
+<p class="para">Every letter is drawn as a single centre line and expanded to an outline at build
+time, so the face keeps one stroke thickness everywhere: no thick-and-thin, no corners, no
+counters cut by hand. The round terminals come from the stroke itself. Set it large. It is a
+display face, and it gets quiet below 16 px.</p>
+
+<h2>Construction</h2>
+<p class="note">Centre lines on the 200-unit design grid. Blue rules mark the x-height and the baseline.</p>
+<div class="grid" id="gUp"></div>
+<div class="grid" id="gLo"></div>
+<div class="grid" id="gNu"></div>
+
+<h2>Install and use</h2>
+<pre>@font-face {
+  font-family: "Arclight";
+  src: url("Arclight-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+/* repeat for 300 (Light) and 700 (Bold) */
+
+h1 { font-family: "Arclight", sans-serif; letter-spacing: .05em; }</pre>
+
+<footer>
+Arclight __VERSION__ &middot; SIL Open Font License 1.1. Metrics: 1000 units per em, cap height 704,
+x-height 384, descender &minus;256. To install locally, double-click a .ttf. On the web, use the
+.woff2 files. Each weight is the same skeleton stroked at a different width in
+sources/build_arclight.py.
+</footer>
+
+<script>
+const G = __GLYPH_DATA__;
+const type = document.getElementById("type");
+document.getElementById("size").addEventListener("input", e => type.style.fontSize = e.target.value + "px");
+document.getElementById("track").addEventListener("input", e => type.style.letterSpacing = e.target.value / 100 + "em");
+document.querySelectorAll("#wsel button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#wsel button").forEach(o => o.setAttribute("aria-pressed", o === b));
+  type.style.fontWeight = b.dataset.w;
+}));
+document.querySelectorAll(".sw").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".sw").forEach(o => o.setAttribute("aria-pressed", o === b));
+  type.style.color = b.dataset.c;
+}));
+
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function cell(ch) {
+  const g = G[ch];
+  if (!g) return "";
+  const w = g[1], label = esc(ch);
+  return `<div class="cell"><b>${label}</b>
+    <svg viewBox="-14 6 ${w + 28} 190" role="img" aria-label="glyph ${label}">
+      <g class="guides"><line x1="-14" y1="70" x2="${w + 14}" y2="70"/><line x1="-14" y1="130" x2="${w + 14}" y2="130"/></g>
+      <path class="skel" d="${g[0]}"/>
+    </svg></div>`;
+}
+const up = "ABCDEFGHIJKLMNOPQRSTUVWXYZ", lo = up.toLowerCase(), nu = "0123456789.,:;!?-–—_'\"/\\()[]+=*#&@%$<>";
+document.getElementById("gUp").innerHTML = [...up].map(cell).join("");
+document.getElementById("gLo").innerHTML = [...lo].map(cell).join("");
+document.getElementById("gNu").innerHTML = [...nu].map(cell).join("");
+</script>
+<script>
+// Light/dark toggle; when embedded in the q78717.github.io site, follow the wrapper's toggle instead.
+(function () {
+  var r = document.documentElement;
+  function effective() {
+    return r.getAttribute("data-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  }
+  var b = document.createElement("button");
+  b.className = "rv-toggle"; b.type = "button"; b.setAttribute("aria-label", "Toggle light and dark mode");
+  b.innerHTML = '<svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
+  b.addEventListener("click", function () {
+    var next = effective() === "dark" ? "light" : "dark";
+    r.setAttribute("data-theme", next);
+    try { localStorage.setItem("theme", next); } catch (e) {}
+  });
+  document.body.appendChild(b);
+  window.addEventListener("message", function (e) {
+    if (e.origin !== "https://q78717.github.io" || !e.data || e.data.type !== "rv-theme") return;
+    var t = e.data.theme;
+    if (t === "light" || t === "dark") r.setAttribute("data-theme", t);
+    else r.removeAttribute("data-theme");
+  });
+  if (r.classList.contains("rv-embedded")) {
+    try { window.parent.postMessage({ type: "rv-theme-ready" }, "https://q78717.github.io"); } catch (e) {}
+  }
+})();
+</script>
+</body>
+</html>

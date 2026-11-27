@@ -1,0 +1,22 @@
+name: Specimen site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "documentation/specimen/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  pages:
+    uses: q78717/font-tools/.github/workflows/pages.yml@v0.1.0

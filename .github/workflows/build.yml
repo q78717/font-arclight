@@ -1,0 +1,14 @@
+name: Build font and specimen
+
+# make build, make test (fontspector, as used by Google Fonts) and make proof
+# (diffenator3), via the shared workflow in q78717/font-tools.
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    uses: q78717/font-tools/.github/workflows/build.yml@v0.1.0

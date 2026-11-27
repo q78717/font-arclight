@@ -1,0 +1,17 @@
+# gftools builder recipe for Arclight (run from the repo root via sources/build.sh)
+sources:
+  - ufo/Arclight-Light.ufo
+  - ufo/Arclight-Regular.ufo
+  - ufo/Arclight-Bold.ufo
+familyName: "Arclight"
+buildVariable: false
+buildStatic: true
+buildTTF: true
+buildOTF: false
+buildWebfont: true
+autohintTTF: true
+outputDir: "../fonts"
+ttDir: "../fonts/ttf"
+woffDir: "../fonts/webfonts"
+cleanUp: true
+removeOutlineOverlaps: false   # outlines are already merged by the build script

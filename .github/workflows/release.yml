@@ -1,0 +1,24 @@
+name: Release
+
+# Run it from the Actions tab (Release > Run workflow) and enter the version,
+# or push a tag such as v1.000. Either way it zips the committed fonts and
+# publishes a GitHub Release, via the shared workflow in q78717/font-tools.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 1.000"
+        required: true
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: q78717/font-tools/.github/workflows/release.yml@v0.1.0
+    with:
+      family: Arclight
+      version: ${{ inputs.version || github.ref_name }}
